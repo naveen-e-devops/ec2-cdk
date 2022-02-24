@@ -3,7 +3,7 @@ import { Construct } from "constructs";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
-
+import { VpcSubnetGroupType } from "aws-cdk-lib/cx-api";
 
 export class vpc extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -20,12 +20,16 @@ export class vpc extends Stack {
           name: "public",
           subnetType: ec2.SubnetType.PUBLIC,
         },
+        {
+          name: "private",
+          subnetType: ec2.SubnetType.PRIVATE_WITH_NAT,
+        },
       ],
     });
     // s3 bucket
-    const bucket = new s3.Bucket(this, "MyFirstBucket", {
-      bucketName: "nv-good-product",
-    });
+    // const bucket = new s3.Bucket(this, "MyFirstBucket", {
+    //   bucketName: "nv-good-product",
+    // });
 
     // iam role for ec2
     const role = new iam.Role(this, "Role", {
@@ -37,20 +41,26 @@ export class vpc extends Stack {
     role.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: ["s3:CreateBucket", "s3:GetObject", "s3:ListBucket",  "s3:HeadBucket","s3:Headobject", "s3:ListAllMyBuckets"],
+        actions: [
+          "s3:CreateBucket",
+          "s3:GetObject",
+        ],
         resources: [
-            "arn:aws:s3:::nu-good-product/*",
-            "arn:aws:s3:::nu-good-product"  
+          "arn:aws:s3:::nv-good-product/*",
+          "arn:aws:s3:::nv-good-product",
         ],
       })
     );
     role.addToPolicy(
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: ["s3:ListBucket", "s3:HeadBucket", "s3:HeadObject","s3:ListAllMyBuckets"],
-          resources: ["*"],
-        })
-      );
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "s3:ListBucket",
+          "s3:ListAllMyBuckets",
+        ],
+        resources: ["*"],
+      })
+    );
 
     // security group
     const securityGroup = new ec2.SecurityGroup(this, "simple-instance-1-sg", {
@@ -63,17 +73,19 @@ export class vpc extends Stack {
       ec2.Port.tcp(22),
       "Allows SSH access from Internet"
     );
-    new ec2.Instance(this, 'instance',{
-        vpc: vpc,
-        instanceName: 'good-product',
-        instanceType: new ec2.InstanceType('t2.micro'),
-        role: role,
-        securityGroup: securityGroup,
-        keyName: 'my-key',
-        machineImage: ec2.MachineImage.latestAmazonLinux({
-          generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2
-        }),
-  
-      })
+    new ec2.Instance(this, "instance", {
+      vpc: vpc,
+      instanceName: "good-product",
+      instanceType: new ec2.InstanceType("t2.micro"),
+      role: role,
+      securityGroup: securityGroup,
+      vpcSubnets: {
+      subnetType: ec2.SubnetType.PUBLIC,
+      },
+      keyName: "my-key",
+      machineImage: ec2.MachineImage.genericLinux({
+        'ap-south-1': 'ami-08ee6644906ff4d6c',
+      }),
+    });
   }
 }
